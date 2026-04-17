@@ -4,11 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "git-secret-guard"
-version = "0.1.0"
+version = "0.1.1"
 description = "A zero-dependency pre-commit hook that blocks secrets before they enter git history."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "Hinano Hart", email = "hinanohart@gmail.com" }]
 keywords = [
   "git",
