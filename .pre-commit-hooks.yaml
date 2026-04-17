@@ -1,0 +1,13 @@
+- id: git-secret-guard
+  name: git-secret-guard
+  description: Block commits that contain secrets.
+  entry: git-secret-guard scan
+  language: python
+  language_version: python3
+  stages: [pre-commit]
+  # pre-commit.com normally passes only the files matching 'files:' /
+  # 'types:'. We pass nothing here so *every* staged file is scanned — our
+  # internal logic reads git's staging list directly.
+  pass_filenames: false
+  always_run: true
+  require_serial: true
