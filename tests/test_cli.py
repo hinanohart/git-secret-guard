@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -13,6 +14,7 @@ from git_secret_guard._version import __version__
 from git_secret_guard.cli import main
 
 GIT_AVAILABLE = shutil.which("git") is not None
+IS_WINDOWS = os.name == "nt"
 
 
 def _run_git(args: list[str], cwd: Path) -> None:
@@ -117,9 +119,13 @@ def test_install_hook_writes_executable(repo: Path) -> None:
     assert rc == 0
     hook = repo / ".git" / "hooks" / "pre-commit"
     assert hook.is_file()
-    # chmod bits
-    mode = hook.stat().st_mode
-    assert mode & 0o111, "hook should be executable"
+    # chmod bits — skipped on Windows because NTFS doesn't track POSIX
+    # execute permission; git for Windows ignores the bit anyway when
+    # dispatching hooks, so the install-hook behaviour on Windows is
+    # "file exists with the shim contents" and nothing more.
+    if not IS_WINDOWS:
+        mode = hook.stat().st_mode
+        assert mode & 0o111, "hook should be executable"
 
 
 def test_install_hook_refuses_without_force(repo: Path) -> None:
