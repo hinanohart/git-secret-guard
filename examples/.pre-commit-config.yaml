@@ -1,0 +1,10 @@
+# Minimum pre-commit.com config for a repo that wants secret scanning.
+#
+# Copy into your repo root as `.pre-commit-config.yaml`, pin `rev:` to the
+# latest tag, then run `pre-commit install`.
+
+repos:
+  - repo: https://github.com/hinanohart/git-secret-guard
+    rev: v0.1.0
+    hooks:
+      - id: git-secret-guard

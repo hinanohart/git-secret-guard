@@ -1,0 +1,21 @@
+# Example git-secret-guard config.
+#
+# Drop this at ~/.config/git-secret-guard/config.toml for user-wide
+# defaults, or at .git-secret-guard.toml in the repo root for repo-local
+# settings. Point $GIT_SECRET_GUARD_CONFIG at another path to override.
+
+# Rule IDs to silence. Run `git-secret-guard list-rules` to see what's
+# available. Unknown IDs are logged and ignored — they never crash the
+# hook.
+allowlist = [
+  # "filename-credentials-json",
+  # "generic-keyword-assignment",
+]
+
+# If true, BLOCK outcomes become WARN at the process exit — useful during
+# onboarding when you want to see what would have fired without breaking
+# existing commits.
+dry_run = false
+
+# If true, WARN becomes BLOCK. Zero-tolerance mode.
+warn_as_block = false

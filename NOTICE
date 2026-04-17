@@ -1,0 +1,14 @@
+git-secret-guard
+Copyright 2026 Hinano Hart
+
+This product includes software developed by Hinano Hart
+(https://github.com/hinanohart/git-secret-guard).
+
+Licensed under the Apache License, Version 2.0.
+
+The rule catalog documents publicly known token prefixes (AWS, GitHub,
+Slack, Stripe, etc.). These prefixes are trademarks of their respective
+owners; this project is not affiliated with, endorsed by, or sponsored
+by any of them.
+
+This project contains no third-party source code.
