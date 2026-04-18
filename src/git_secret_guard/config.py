@@ -92,6 +92,26 @@ def load_config(path: Path | None = None, *, cwd: Path | None = None) -> Config:
     return Config()
 
 
+def _strict_bool(value: Any, *, key: str, default: bool) -> bool:
+    """Interpret ``value`` strictly as True/False.
+
+    ``bool("false")`` is ``True`` in Python because any non-empty string
+    is truthy. A user who types ``dry_run = "false"`` in TOML would
+    silently enable dry-run, stopping every BLOCK from firing. Reject
+    non-bool values and use the default.
+    """
+    if value is None:
+        return default
+    if not isinstance(value, bool):
+        print(
+            f"git-secret-guard: config key {key!r} must be a bool, "
+            f"got {type(value).__name__}={value!r}; using default={default}.",
+            file=sys.stderr,
+        )
+        return default
+    return value
+
+
 def _from_dict(data: dict[str, Any]) -> Config:
     raw_allow = data.get("allowlist", [])
     allowlist: frozenset[str]
@@ -110,6 +130,8 @@ def _from_dict(data: dict[str, Any]) -> Config:
 
     return Config(
         allowlist=allowlist,
-        dry_run=bool(data.get("dry_run", False)),
-        warn_as_block=bool(data.get("warn_as_block", False)),
+        dry_run=_strict_bool(data.get("dry_run"), key="dry_run", default=False),
+        warn_as_block=_strict_bool(
+            data.get("warn_as_block"), key="warn_as_block", default=False
+        ),
     )

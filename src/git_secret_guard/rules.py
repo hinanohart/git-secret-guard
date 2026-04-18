@@ -76,17 +76,21 @@ _CATALOG: Final[tuple[Rule, ...]] = (
         category="filename",
         severity=Severity.BLOCK,
         kind="filename",
-        # Matches .env, .env.local, .env.production, production.env, etc.
-        # but NOT .env.example / .env.sample / .env.template / .env.dist
-        # which are the established convention for committing a *schema* of
-        # env vars. The negative lookahead only bites when the suffix stands
-        # alone (e.g. ``.env.example.bak`` still matches).
+        # Matches any filename containing ``.env`` as a dot-delimited token —
+        # ``.env``, ``.env.local``, ``.env.production``, ``production.env``,
+        # ``.env.example.bak``, ``secrets.env.production``, etc. — while
+        # carving out ONLY the standard template forms that are meant to be
+        # committed: ``.env.example``, ``.env.sample``, ``.env.template``,
+        # ``.env.dist`` (filename must start with ``.env`` for the carve-out
+        # to apply, so ``secrets.env.example`` is not eligible).
+        # ``re.IGNORECASE`` closes the case-folding filesystem bypass
+        # (``.ENV``, ``.Env.Production``).
         regex=_re(
             r"(?:^|/)"
-            r"(?:"
-            r"\.env(?:\.(?!(?:example|sample|template|dist)$)[^/]*)?"
-            r"|[^/]*\.env"
-            r")$",
+            r"(?=[^/]*\.env(?:\.|$))"
+            r"(?!\.env\.(?:example|sample|template|dist)$)"
+            r"[^/]*$",
+            re.IGNORECASE,
         ),
         reason=(
             "Dotenv files almost always contain secrets. Use .env.example "
@@ -117,8 +121,16 @@ _CATALOG: Final[tuple[Rule, ...]] = (
         severity=Severity.BLOCK,
         kind="filename",
         # Matches ~/.ssh/id_rsa, id_ed25519, id_ecdsa, id_dsa, plus *_rsa
-        # style custom names.
-        regex=_re(r"(?:^|/)(?:id_(?:rsa|dsa|ecdsa|ed25519)|[^/]+_(?:rsa|ed25519|ecdsa))$"),
+        # style custom names. ``IGNORECASE`` closes the ``id_RSA`` /
+        # ``id_ED25519`` bypass; optional ``.old`` / ``.bak`` / ``.backup``
+        # suffix covers rotation leftovers.
+        regex=_re(
+            r"(?:^|/)"
+            r"(?:id_(?:rsa|dsa|ecdsa|ed25519)|[^/]+_(?:rsa|ed25519|ecdsa))"
+            r"(?:\.(?:old|bak|backup|orig|save))?"
+            r"$",
+            re.IGNORECASE,
+        ),
         reason="SSH private-key file. Committing this hands your identity to anyone with repo access.",
     ),
     Rule(
@@ -157,8 +169,9 @@ _CATALOG: Final[tuple[Rule, ...]] = (
         category="filename",
         severity=Severity.BLOCK,
         kind="filename",
-        regex=_re(r"(?:^|/)\.netrc$"),
-        reason=".netrc stores plaintext HTTP/FTP credentials. Never commit.",
+        # ``.netrc`` on Unix, ``_netrc`` on Windows — same file, same secrets.
+        regex=_re(r"(?:^|/)(?:\.netrc|_netrc)$", re.IGNORECASE),
+        reason=".netrc / _netrc stores plaintext HTTP/FTP credentials. Never commit.",
     ),
     Rule(
         id="filename-pypirc",
@@ -261,7 +274,15 @@ _CATALOG: Final[tuple[Rule, ...]] = (
         category="chat",
         severity=Severity.BLOCK,
         kind="content",
-        regex=_re(r"\bxox[abprs]-[A-Za-z0-9-]{10,48}\b"),
+        # Covers the full Slack family:
+        #   xoxa/xoxb/xoxp/xoxr/xoxs  — legacy bot/user/app tokens
+        #   xapp-                     — app-level tokens
+        #   xoxe-                     — refresh tokens (2023+)
+        #   xoxe.xoxp-                — rotated refresh tokens
+        # Length extended to 100 to catch the longer post-rotation format.
+        regex=_re(
+            r"\b(?:xox[abprs]|xoxe(?:\.xoxp)?|xapp)-[A-Za-z0-9.-]{10,100}\b"
+        ),
         reason="Slack API token. Revoke via the Slack app dashboard.",
     ),
     Rule(
@@ -322,9 +343,68 @@ _CATALOG: Final[tuple[Rule, ...]] = (
         category="saas",
         severity=Severity.BLOCK,
         kind="content",
-        # Both legacy (sk-...) and project-scoped (sk-proj-...) keys.
-        regex=_re(r"\bsk-(?:proj-)?[A-Za-z0-9_-]{32,}\b"),
+        # Two distinct shapes, joined by alternation:
+        #
+        # 1. Modern prefixed keys (``sk-proj-``, ``sk-svcacct-``,
+        #    ``sk-admin-``, ``sk-None-``) — demand the prefix so arbitrary
+        #    kebab identifiers like ``sk-learn-pipeline-foo-bar-baz`` do
+        #    not false-positive. The body length floor is raised to 40 to
+        #    match the actual OpenAI shape.
+        # 2. Legacy raw keys (``sk-`` + ≥48 alnum) — no underscore, no
+        #    hyphen in the body, because legacy keys are strictly
+        #    ``[A-Za-z0-9]``. This pushes the false-positive bar well
+        #    above any realistic identifier.
+        regex=_re(
+            r"\b(?:"
+            r"sk-(?:proj|svcacct|admin|None)-[A-Za-z0-9_-]{40,}"
+            r"|sk-[A-Za-z0-9]{48,}"
+            r")\b"
+        ),
         reason="OpenAI API key. Revoke via platform.openai.com/api-keys.",
+    ),
+    Rule(
+        id="huggingface-token",
+        category="saas",
+        severity=Severity.BLOCK,
+        kind="content",
+        regex=_re(r"\bhf_[A-Za-z0-9]{34,40}\b"),
+        reason="HuggingFace access token. Revoke via huggingface.co/settings/tokens.",
+    ),
+    Rule(
+        id="dockerhub-pat",
+        category="saas",
+        severity=Severity.BLOCK,
+        kind="content",
+        # Docker Hub PATs are ``dckr_pat_<base64ish-27+>``.
+        regex=_re(r"\bdckr_pat_[A-Za-z0-9_-]{27,}\b"),
+        reason="Docker Hub personal access token. Revoke via Docker Hub > Account Settings.",
+    ),
+    Rule(
+        id="google-oauth-refresh",
+        category="saas",
+        severity=Severity.BLOCK,
+        kind="content",
+        regex=_re(r"\b1//0[A-Za-z0-9_-]{40,}\b"),
+        reason="Google OAuth refresh token (``1//0…``). Revoke via Google account security.",
+    ),
+    Rule(
+        id="db-url-with-password",
+        category="saas",
+        severity=Severity.BLOCK,
+        kind="content",
+        # ``<scheme>://user:password@host[/db]`` — catches postgres/mysql/
+        # mongodb/redis/amqp/mssql/mariadb URIs with embedded credentials.
+        regex=_re(
+            r"\b(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?"
+            r"|redis|rediss|amqp|amqps|mssql|clickhouse)://"
+            # ``user:password@`` OR ``:password@`` — redis/rabbitmq often
+            # omit the username and start with ``:password``.
+            r"[^:/\s@]*:[^@/\s]+@[^/\s]+"
+        ),
+        reason=(
+            "Database connection URL with embedded password. Use a secrets "
+            "manager and build the URL at runtime."
+        ),
     ),
     Rule(
         id="anthropic-api-key",
@@ -382,15 +462,19 @@ _CATALOG: Final[tuple[Rule, ...]] = (
         severity=Severity.WARN,
         kind="content",
         # Keyword followed by ``=`` or ``:`` then a 16+ char literal. Carve
-        # out the obvious non-secret shapes so noise stays manageable:
-        #   * references to env vars: os.environ, process.env, $VAR, getenv
-        #   * template placeholders: ${...}, {{...}}, <...>, xxx..., ****
+        # out the obvious non-secret shapes — but apply the check at the
+        # START of the quoted VALUE, not across the whole line. The
+        # previous form ``(?!.*(...))`` caused O(N²) backtracking on long
+        # inputs (see ReDoS audit: 10 k anchors = 48 s). Moving the
+        # carve-out inside the quotes also fixes the "trailing ``<`` in a
+        # comment triggers false-negative" bug.
         regex=_re(
             r"""(?ix)
             (?:api[_-]?key|secret|password|passwd|token|access[_-]?key)
             \s*[:=]\s*
             ['"]
-            (?!.*(?:os\.environ|process\.env|getenv|\$\{|\{\{|<|xxx+|\*\*\*+))
+            (?!(?:os\.environ|process\.env|getenv|\$\{|\{\{|<|xxx+|\*\*\*+|
+                 CHANGE_?ME|REPLACE_?ME|TODO|FIXME|placeholder|your[-_]?\w+))
             ([A-Za-z0-9/_+=.-]{16,})
             ['"]
             """,

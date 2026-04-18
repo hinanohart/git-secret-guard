@@ -32,6 +32,7 @@ comment at the top of a file cannot silently disable scanning.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -46,6 +47,27 @@ _INLINE_ALLOW_RE = re.compile(
     r"git-secret-guard\s*:\s*allow\s+([a-z0-9-]+(?:\s*,\s*[a-z0-9-]+)*)",
     re.IGNORECASE,
 )
+
+
+def _normalise_for_scan(text: str) -> str:
+    """Fold compatibility forms and drop invisible format chars.
+
+    Parallel to ``claude_safety_guard.guard._normalise_for_scan``. Without
+    this step, an attacker (or a careless paste from Notion/Slack) can
+    embed U+200B/U+200D/U+FEFF inside an otherwise-matching credential
+    literal and defeat every content rule — the scanned bytes are still
+    a valid secret after the shell / editor strips the Cf character, but
+    the regex never fires because the character class doesn't include Cf.
+
+    NFKC additionally folds full-width forms so fullwidth variants of
+    ``password`` / ``secret`` in ``generic-keyword-assignment`` are
+    caught.
+    """
+    return "".join(
+        ch
+        for ch in unicodedata.normalize("NFKC", text)
+        if unicodedata.category(ch) != "Cf"
+    )
 
 
 class Severity(str, Enum):
@@ -171,13 +193,25 @@ _MATCH_PREVIEW_LIMIT = 80
 
 
 def _truncate(text: str) -> str:
-    """Trim a matched string so we never echo a full credential."""
-    # Strip the surrounding whitespace first — matches often span the indent
-    # of the enclosing line, which adds noise without adding information.
+    """Redact a matched string so we never echo a full credential.
+
+    A scanner that prints the credential it found — even once, even to
+    stderr — is a leak vector. The matched text ends up in CI logs, IDE
+    output panels, shell history, and (via alerting) Discord / Slack
+    webhooks. Short secrets (AWS access keys at 20 chars, Stripe sk_live_…
+    at ~40) fit well under the old 80-char cap, so the raw value was being
+    printed in full.
+
+    The output retains enough information for the user to locate the
+    finding (first 4 chars + length) without reproducing the secret.
+    """
     s = text.strip()
-    if len(s) <= _MATCH_PREVIEW_LIMIT:
-        return s
-    return s[:_MATCH_PREVIEW_LIMIT] + "..."
+    n = len(s)
+    if n == 0:
+        return ""
+    if n <= 8:
+        return f"<redacted len={n}>"
+    return f"{s[:4]}…<redacted len={n}>"
 
 
 def _line_is_allowlisted(line: str, rule_id: str) -> bool:
@@ -208,11 +242,12 @@ class Scanner:
 
     def _scan_target(self, target: ScanTarget, opts: ScanOptions) -> list[Finding]:
         hits: list[Finding] = []
+        normalised_path = _normalise_for_scan(target.path)
         for rule in self._rules:
             if rule.id in opts.allowlist:
                 continue
             if rule.kind == "filename":
-                m = rule.regex.search(target.path)
+                m = rule.regex.search(normalised_path)
                 if m:
                     hits.append(
                         Finding(
@@ -227,9 +262,13 @@ class Scanner:
                     )
             elif rule.kind == "content":
                 for i, line in enumerate(target.added_lines, start=1):
-                    m = rule.regex.search(line)
+                    scan_line = _normalise_for_scan(line)
+                    m = rule.regex.search(scan_line)
                     if not m:
                         continue
+                    # Allow-pragma check runs against the ORIGINAL line —
+                    # otherwise an attacker could use Cf chars to hide an
+                    # unwanted pragma. Both views must agree.
                     if _line_is_allowlisted(line, rule.id):
                         continue
                     hits.append(
