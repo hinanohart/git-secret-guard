@@ -270,8 +270,15 @@ def test_mailgun_key() -> None:
 
 def test_openai_api_key() -> None:
     rule = _by_id("openai-api-key")
-    assert rule.regex.search("sk-" + "A" * 32)
+    # Legacy key shape: ``sk-`` + 48 alnum. 32 chars is too short and
+    # collides with kebab identifiers (scikit-learn, etc.) — reject it.
+    assert rule.regex.search("sk-" + "A" * 48)
     assert rule.regex.search("sk-proj-" + "A" * 48)
+    assert rule.regex.search("sk-svcacct-" + "A" * 48)
+    assert rule.regex.search("sk-admin-" + "A" * 48)
+    # False-positive protection: a kebab identifier must NOT match.
+    assert rule.regex.search("sk-learn-pipeline-classifier-utils-v2") is None
+    assert rule.regex.search("sk-config-development-credentials-loader") is None
 
 
 def test_anthropic_api_key() -> None:

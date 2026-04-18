@@ -180,13 +180,37 @@ def test_inline_allow_pragma_multiple_ids() -> None:
     assert decision.outcome is Outcome.ALLOW
 
 
-def test_matched_text_is_truncated() -> None:
+def test_matched_text_is_redacted_not_truncated() -> None:
+    """Matched preview MUST NOT reproduce enough of the secret to recover it.
+
+    Historic behaviour was ``first-80-chars + "..."`` which happily printed
+    an entire 20-char AWS key or 40-char Stripe secret. The new contract
+    is redaction: first 4 chars + length, nothing more.
+    """
     scanner = Scanner([_rule(regex=r"A{1,500}")])
     decision = scanner.scan(
         [ScanTarget(path="a.py", added_lines=("A" * 400,))],
     )
-    assert len(decision.findings[0].matched_text) <= 83  # 80 + "..."
-    assert decision.findings[0].matched_text.endswith("...")
+    matched = decision.findings[0].matched_text
+    # Never longer than the prefix + ellipsis + redaction marker.
+    assert len(matched) <= 32
+    # Must NOT leak more than 4 characters of the underlying secret.
+    assert matched.count("A") <= 4
+    # Still must surface the length so the user can correlate with the
+    # line they wrote.
+    assert "len=400" in matched
+
+
+def test_matched_text_short_secret_fully_redacted() -> None:
+    """A secret ≤ 8 chars is short enough that even a 4-char prefix leaks
+    most of it — redact the whole thing."""
+    scanner = Scanner([_rule(regex=r"A{1,500}")])
+    decision = scanner.scan(
+        [ScanTarget(path="a.py", added_lines=("A" * 6,))],
+    )
+    matched = decision.findings[0].matched_text
+    assert "A" not in matched
+    assert "len=6" in matched
 
 
 def test_finding_to_dict_json_roundtrip() -> None:

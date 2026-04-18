@@ -17,11 +17,18 @@ less. That means:
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from git_secret_guard.rules import default_rules
 from git_secret_guard.scanner import Decision, Scanner, ScanOptions, ScanTarget
+
+# Cap on the bytes we'll scan for a single file / diff. A committer who stages
+# a 2 GB text blob should NOT be able to hang the pre-commit hook (and thus
+# the CI runner). 50 MB per file is far above any legitimate source file;
+# anything larger is skipped with a warning.
+_MAX_FILE_BYTES = 50 * 1024 * 1024
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -74,11 +81,22 @@ def staged_added_lines(path: str, cwd: Path | None = None) -> tuple[str, ...]:
     ``+``-prefixed line is real new content, not a context repeat. Binary
     files produce no added lines — git returns a ``Binary files ... differ``
     marker we deliberately skip.
+
+    A diff larger than :data:`_MAX_FILE_BYTES` is skipped with a stderr
+    warning — a multi-gigabyte staged blob otherwise hangs the hook
+    (see audit: O(N²) generic-keyword pattern + slurped stdout capture).
     """
     out = _run_git(
         ["diff", "--cached", "-U0", "--no-color", "--", path],
         cwd=cwd,
     )
+    if len(out) > _MAX_FILE_BYTES:
+        print(
+            f"git-secret-guard: skipping diff for {path!r}: "
+            f"{len(out)} bytes exceeds {_MAX_FILE_BYTES} cap.",
+            file=sys.stderr,
+        )
+        return ()
     added: list[str] = []
     for line in out.splitlines():
         # Skip diff headers: +++ b/path, and hunk markers @@
@@ -96,6 +114,17 @@ def all_file_lines(path: str, cwd: Path | None = None) -> tuple[str, ...]:
     a crash when the scanner would not produce findings anyway.
     """
     file_path = (cwd or Path.cwd()) / path
+    try:
+        size = file_path.stat().st_size
+    except OSError:
+        return ()
+    if size > _MAX_FILE_BYTES:
+        print(
+            f"git-secret-guard: skipping {path!r}: "
+            f"{size} bytes exceeds {_MAX_FILE_BYTES} cap.",
+            file=sys.stderr,
+        )
+        return ()
     try:
         data = file_path.read_bytes()
     except (OSError, ValueError):
