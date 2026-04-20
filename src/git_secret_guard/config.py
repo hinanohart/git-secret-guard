@@ -131,7 +131,5 @@ def _from_dict(data: dict[str, Any]) -> Config:
     return Config(
         allowlist=allowlist,
         dry_run=_strict_bool(data.get("dry_run"), key="dry_run", default=False),
-        warn_as_block=_strict_bool(
-            data.get("warn_as_block"), key="warn_as_block", default=False
-        ),
+        warn_as_block=_strict_bool(data.get("warn_as_block"), key="warn_as_block", default=False),
     )

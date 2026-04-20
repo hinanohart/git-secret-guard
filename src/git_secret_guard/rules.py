@@ -280,9 +280,7 @@ _CATALOG: Final[tuple[Rule, ...]] = (
         #   xoxe-                     — refresh tokens (2023+)
         #   xoxe.xoxp-                — rotated refresh tokens
         # Length extended to 100 to catch the longer post-rotation format.
-        regex=_re(
-            r"\b(?:xox[abprs]|xoxe(?:\.xoxp)?|xapp)-[A-Za-z0-9.-]{10,100}\b"
-        ),
+        regex=_re(r"\b(?:xox[abprs]|xoxe(?:\.xoxp)?|xapp)-[A-Za-z0-9.-]{10,100}\b"),
         reason="Slack API token. Revoke via the Slack app dashboard.",
     ),
     Rule(
