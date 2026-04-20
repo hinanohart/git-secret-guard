@@ -64,9 +64,7 @@ def _normalise_for_scan(text: str) -> str:
     caught.
     """
     return "".join(
-        ch
-        for ch in unicodedata.normalize("NFKC", text)
-        if unicodedata.category(ch) != "Cf"
+        ch for ch in unicodedata.normalize("NFKC", text) if unicodedata.category(ch) != "Cf"
     )
 
 

@@ -120,8 +120,7 @@ def all_file_lines(path: str, cwd: Path | None = None) -> tuple[str, ...]:
         return ()
     if size > _MAX_FILE_BYTES:
         print(
-            f"git-secret-guard: skipping {path!r}: "
-            f"{size} bytes exceeds {_MAX_FILE_BYTES} cap.",
+            f"git-secret-guard: skipping {path!r}: {size} bytes exceeds {_MAX_FILE_BYTES} cap.",
             file=sys.stderr,
         )
         return ()
