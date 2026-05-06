@@ -82,8 +82,15 @@ def load_config(path: Path | None = None, *, cwd: Path | None = None) -> Config:
                 with candidate.open("rb") as f:
                     data = tomllib.load(f)
             except (tomllib.TOMLDecodeError, OSError) as exc:
+                # Avoid embedding the raw exception payload in the error
+                # message — for TOMLDecodeError that payload includes a
+                # snippet of the offending source line, which can leak the
+                # very secrets the user is trying to hide (e.g. a malformed
+                # ``api_key = "sk-..."``). Surface the exception type only;
+                # the user can ``cat`` the file themselves to debug.
                 print(
-                    f"git-secret-guard: failed to parse {candidate}: {exc}; using defaults.",
+                    f"git-secret-guard: failed to parse {candidate}: "
+                    f"{type(exc).__name__}; using defaults.",
                     file=sys.stderr,
                 )
                 return Config()
