@@ -1,39 +1,51 @@
 # git-secret-guard
 
-> ## ⚠️ DEPRECATED (2026-05-09) — Use [gitleaks](https://github.com/gitleaks/gitleaks) instead
+> ## ℹ️ Notice (2026-05-09) — gitleaks covers most cases, but filename-only rules here are unique
 >
-> A 2026-05-09 R17 audit (4-stage check: gap / premise / catastrophe / depth) found that
-> **every rule shipped here is already covered by gitleaks' 222-rule default config**:
-> `aws-access-token`, `github-pat`, `github-fine-grained-pat`, `gitlab-pat`,
-> `slack-token`, `gcp-service-account`, `azure-storage-connection-string`,
-> dotenv / private-key / netrc filename detection — all of it.
+> A 2026-05-09 R17 audit found that this repo ships **36 rules**: roughly
+> **26 content-based rules** are concept-equivalent to entries in
+> [gitleaks](https://github.com/gitleaks/gitleaks)' 222-rule default config
+> (`aws-access-token`, `github-pat`, `github-fine-grained-pat`, `gitlab-pat`,
+> `slack-token`, `gcp-service-account`, `azure-storage-connection-string`, etc.).
 >
-> gitleaks (Go, 17k★, MIT) is faster, has 222 rules vs our ~50, and runs
-> as a pre-commit hook with `gitleaks protect --staged` — exactly the same
-> "block-before-the-credential-lands" semantics as this repo claims as its
-> differentiator.
+> The remaining **10 filename-only rules are unique to this scanner**:
 >
-> **There is no remaining unique value. Use gitleaks.**
+> - `filename-dotenv` / `filename-dotenv-example-allowed`
+> - `filename-private-key` / `filename-ssh-private-key`
+> - `filename-aws-credentials` / `filename-gcp-service-account`
+> - `filename-kube-config` / `filename-netrc` / `filename-pypirc`
+> - `filename-credentials-json`
 >
-> Quick migration:
+> These block **even empty files with sensitive names** — e.g., committing
+> an empty `.env`, an empty `id_rsa`, or an empty `.kube/config`. gitleaks
+> scans content together with filename, so it does **not** block such empty
+> sensitive-named files. If "the path itself is the secret signal" matters
+> in your threat model (precedent guard, prevent placeholder commits that
+> later get filled in), the filename-only layer here is genuinely
+> complementary.
 >
-> ```yaml
-> # .pre-commit-config.yaml
-> repos:
->   - repo: https://github.com/gitleaks/gitleaks
->     rev: v8.28.0
->     hooks:
->       - id: gitleaks
-> ```
+> ### Recommendation
 >
-> If you have a custom rule that gitleaks does not cover, please open an issue
-> upstream at https://github.com/gitleaks/gitleaks/issues — that contributes
-> the rule to the entire ecosystem instead of fragmenting detection across
-> redundant scanners.
+> - **Most projects**: use [gitleaks](https://github.com/gitleaks/gitleaks)
+>   alone (Go, 17k★, 222 content rules, faster, more battle-tested).
 >
-> This repo will remain published (and the v0.x line will keep shipping
-> security fixes for a transition period) but no new rules or features will be
-> accepted. PRs that port logic into gitleaks are welcome.
+>   ```yaml
+>   # .pre-commit-config.yaml
+>   repos:
+>     - repo: https://github.com/gitleaks/gitleaks
+>       rev: v8.28.0
+>       hooks:
+>         - id: gitleaks
+>   ```
+>
+> - **If empty-sensitive-filename block matters**: keep `git-secret-guard`
+>   as a thin precedent layer running before gitleaks, or open an upstream
+>   issue at https://github.com/gitleaks/gitleaks/issues proposing
+>   path-only patterns (the contribution would benefit the whole ecosystem).
+>
+> This repo stays in maintenance mode for security fixes and existing users
+> with an empty-file precedent need; new development should target gitleaks
+> instead.
 
 ---
 
