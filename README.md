@@ -1,5 +1,42 @@
 # git-secret-guard
 
+> ## ⚠️ DEPRECATED (2026-05-09) — Use [gitleaks](https://github.com/gitleaks/gitleaks) instead
+>
+> A 2026-05-09 R17 audit (4-stage check: gap / premise / catastrophe / depth) found that
+> **every rule shipped here is already covered by gitleaks' 222-rule default config**:
+> `aws-access-token`, `github-pat`, `github-fine-grained-pat`, `gitlab-pat`,
+> `slack-token`, `gcp-service-account`, `azure-storage-connection-string`,
+> dotenv / private-key / netrc filename detection — all of it.
+>
+> gitleaks (Go, 17k★, MIT) is faster, has 222 rules vs our ~50, and runs
+> as a pre-commit hook with `gitleaks protect --staged` — exactly the same
+> "block-before-the-credential-lands" semantics as this repo claims as its
+> differentiator.
+>
+> **There is no remaining unique value. Use gitleaks.**
+>
+> Quick migration:
+>
+> ```yaml
+> # .pre-commit-config.yaml
+> repos:
+>   - repo: https://github.com/gitleaks/gitleaks
+>     rev: v8.28.0
+>     hooks:
+>       - id: gitleaks
+> ```
+>
+> If you have a custom rule that gitleaks does not cover, please open an issue
+> upstream at https://github.com/gitleaks/gitleaks/issues — that contributes
+> the rule to the entire ecosystem instead of fragmenting detection across
+> redundant scanners.
+>
+> This repo will remain published (and the v0.x line will keep shipping
+> security fixes for a transition period) but no new rules or features will be
+> accepted. PRs that port logic into gitleaks are welcome.
+
+---
+
 A zero-dependency pre-commit hook that blocks secrets before they enter git
 history.
 
