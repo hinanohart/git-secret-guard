@@ -1,5 +1,54 @@
 # git-secret-guard
 
+> ## ℹ️ Notice (2026-05-09) — gitleaks covers most cases, but filename-only rules here are unique
+>
+> A 2026-05-09 R17 audit found that this repo ships **36 rules**: roughly
+> **26 content-based rules** are concept-equivalent to entries in
+> [gitleaks](https://github.com/gitleaks/gitleaks)' 222-rule default config
+> (`aws-access-token`, `github-pat`, `github-fine-grained-pat`, `gitlab-pat`,
+> `slack-token`, `gcp-service-account`, `azure-storage-connection-string`, etc.).
+>
+> The remaining **10 filename-only rules are unique to this scanner**:
+>
+> - `filename-dotenv` / `filename-dotenv-example-allowed`
+> - `filename-private-key` / `filename-ssh-private-key`
+> - `filename-aws-credentials` / `filename-gcp-service-account`
+> - `filename-kube-config` / `filename-netrc` / `filename-pypirc`
+> - `filename-credentials-json`
+>
+> These block **even empty files with sensitive names** — e.g., committing
+> an empty `.env`, an empty `id_rsa`, or an empty `.kube/config`. gitleaks
+> scans content together with filename, so it does **not** block such empty
+> sensitive-named files. If "the path itself is the secret signal" matters
+> in your threat model (precedent guard, prevent placeholder commits that
+> later get filled in), the filename-only layer here is genuinely
+> complementary.
+>
+> ### Recommendation
+>
+> - **Most projects**: use [gitleaks](https://github.com/gitleaks/gitleaks)
+>   alone (Go, 17k★, 222 content rules, faster, more battle-tested).
+>
+>   ```yaml
+>   # .pre-commit-config.yaml
+>   repos:
+>     - repo: https://github.com/gitleaks/gitleaks
+>       rev: v8.28.0
+>       hooks:
+>         - id: gitleaks
+>   ```
+>
+> - **If empty-sensitive-filename block matters**: keep `git-secret-guard`
+>   as a thin precedent layer running before gitleaks, or open an upstream
+>   issue at https://github.com/gitleaks/gitleaks/issues proposing
+>   path-only patterns (the contribution would benefit the whole ecosystem).
+>
+> This repo stays in maintenance mode for security fixes and existing users
+> with an empty-file precedent need; new development should target gitleaks
+> instead.
+
+---
+
 A zero-dependency pre-commit hook that blocks secrets before they enter git
 history.
 
