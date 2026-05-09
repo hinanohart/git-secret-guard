@@ -1,5 +1,7 @@
 # git-secret-guard
 
+> **Disclaimer:** This is an **independent third-party tool**, **not affiliated with, endorsed by, or sponsored by Anthropic, GitHub, AWS, Google, GitLab, Stripe, or any other vendor whose secret formats are matched**. Vendor names are used nominatively only to identify the secret patterns this tool detects.
+
 > ## ℹ️ Notice (2026-05-09) — gitleaks covers most cases, but filename-only rules here are unique
 >
 > A 2026-05-09 R17 audit found that this repo ships **36 rules**: roughly
