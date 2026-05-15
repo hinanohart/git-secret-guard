@@ -3,3 +3,6 @@
 # 動機: secret 検出 tool 自身の pattern 定義 (PGP private key block regex) を誤検出
 docs/PATTERNS.md
 src/git_secret_guard/rules.py
+
+# 2026-05-16 audit follow-up: tests/test_cli.py の fake JWT / tests/test_rules.py の fake AWS key・PGP block を誤検出
+tests/
