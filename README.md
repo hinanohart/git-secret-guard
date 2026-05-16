@@ -218,6 +218,28 @@ with positive and negative tests and a one-sentence rationale.
 Found a real-world secret shape we miss? Open an issue — please scrub the
 value first.
 
+## Verification (sigstore)
+
+Releases from **v_next_** (released after 2026-05-16) include a sigstore keyless signature bundle
+(`.sigstore` per artifact) attached to the GitHub Release.
+
+### Verify a PyPI install
+
+```bash
+pip download <pkg-name>==<version> --no-deps -d ./verify
+python -m sigstore verify github \
+    --cert-identity 'https://github.com/hinanohart/git-secret-guard/.github/workflows/release.yml@refs/tags/v<version>' \
+    --cert-oidc-issuer 'https://token.actions.githubusercontent.com' \
+    ./verify/*.whl ./verify/*.tar.gz
+```
+
+The corresponding `.sigstore` bundles can be downloaded from the GitHub Release page.
+
+### Historic releases (pre-2026-05-16)
+
+Earlier releases were published without sigstore bundles. Re-installing those versions
+provides no cryptographic provenance — pin to a current release if assurance matters.
+
 ## License
 
 MIT License. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
