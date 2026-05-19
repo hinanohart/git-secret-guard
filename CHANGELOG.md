@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Rule IDs are part of the public API. They never change meaning across
 minor releases. Removals only happen in major releases.
 
+## [0.1.4] - 2026-05-19
+
+### Changed
+- Re-publish under MIT license. Source synced with new tag v0.1.4 to publish MIT wheel (previous PyPI 0.1.2 carries Apache).
 ## [v0.1.3] - 2026-05-19
 
 ### Changed
