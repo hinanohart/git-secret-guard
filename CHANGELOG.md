@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Rule IDs are part of the public API. They never change meaning across
 minor releases. Removals only happen in major releases.
 
+## [v0.1.3] - 2026-05-19
+
+### Changed
+- Re-tagged from MIT-licensed HEAD. Previous tag `v0.1.2` (2026-04..05) was cut while the repository carried an Apache-2.0 license; the project has since relicensed to MIT. No code changes from `v0.1.2` other than the LICENSE file update. This patch release exists so that `pip install` / version-pinned consumers receive the same MIT-licensed source that the current `main` provides.
+
 ## [Unreleased]
 
 ## [0.1.2] — 2026-04-18
